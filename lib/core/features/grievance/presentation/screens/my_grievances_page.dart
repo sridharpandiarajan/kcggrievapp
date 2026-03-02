@@ -1,40 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kcggriev/models/grievance_model.dart';
+import '../../grievance_provider.dart';
 import 'grievance_details_page.dart';
-import '../../../../../models/grievance_model.dart';
-import '../../../../../services/mock_student_service.dart';
 
-class MyGrievancesPage extends StatefulWidget {
+class MyGrievancesPage extends ConsumerStatefulWidget {
   const MyGrievancesPage({super.key});
 
   @override
-  State<MyGrievancesPage> createState() => _MyGrievancesPageState();
+  ConsumerState<MyGrievancesPage> createState() =>
+      _MyGrievancesPageState();
 }
 
-class _MyGrievancesPageState extends State<MyGrievancesPage> {
-  List<GrievanceModel> allGrievances = [];
-  List<GrievanceModel> filteredGrievances = [];
+class _MyGrievancesPageState
+    extends ConsumerState<MyGrievancesPage> {
+
+  String searchQuery = "";
 
   @override
   void initState() {
     super.initState();
-    _loadData();
-  }
 
-  Future<void> _loadData() async {
-    final data = await MockStudentService().getGrievances();
-    setState(() {
-      allGrievances = data;
-      filteredGrievances = data;
-    });
-  }
-
-  void _search(String query) {
-    setState(() {
-      filteredGrievances = allGrievances.where((g) {
-        return g.id.toLowerCase().contains(query.toLowerCase()) ||
-            g.title.toLowerCase().contains(query.toLowerCase());
-      }).toList();
+    /// Fetch grievances on page load
+    Future.microtask(() {
+      ref
+          .read(grievanceControllerProvider.notifier)
+          .fetchMyGrievances();
     });
   }
 
@@ -51,6 +43,8 @@ class _MyGrievancesPageState extends State<MyGrievancesPage> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(grievanceControllerProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
@@ -74,6 +68,7 @@ class _MyGrievancesPageState extends State<MyGrievancesPage> {
         padding: EdgeInsets.all(18.w),
         child: Column(
           children: [
+
             /// SEARCH BAR
             Container(
               padding: EdgeInsets.symmetric(horizontal: 14.w),
@@ -82,7 +77,11 @@ class _MyGrievancesPageState extends State<MyGrievancesPage> {
                 borderRadius: BorderRadius.circular(14.r),
               ),
               child: TextField(
-                onChanged: _search,
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery = value;
+                  });
+                },
                 decoration: InputDecoration(
                   icon: const Icon(Icons.search),
                   hintText: "Search by Grievance ID or title",
@@ -94,104 +93,147 @@ class _MyGrievancesPageState extends State<MyGrievancesPage> {
 
             SizedBox(height: 18.h),
 
-            /// LIST
+            /// LIST SECTION
             Expanded(
-              child: ListView.builder(
-                itemCount: filteredGrievances.length,
-                itemBuilder: (context, index) {
-                  final grievance = filteredGrievances[index];
-                  final statusColor = getStatusColor(grievance.status);
+              child: state.when(
+                loading: () =>
+                const Center(child: CircularProgressIndicator()),
 
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(16.r),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              GrievanceDetailsPage(grievance: grievance),
+                error: (e, _) =>
+                const Center(child: Text("Failed to load grievances")),
+
+                data: (grievances) {
+
+                  /// Apply search filter
+                  final filtered = grievances.where((g) {
+                    return g.id
+                        .toLowerCase()
+                        .contains(searchQuery.toLowerCase()) ||
+                        g.title
+                            .toLowerCase()
+                            .contains(searchQuery.toLowerCase());
+                  }).toList();
+
+                  if (filtered.isEmpty) {
+                    return const Center(
+                        child: Text("No grievances found"));
+                  }
+
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, index) {
+                      final grievance = filtered[index];
+                      final statusColor =
+                      getStatusColor(grievance.status);
+
+                      return InkWell(
+                        borderRadius:
+                        BorderRadius.circular(16.r),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  GrievanceDetailsPage(
+                                      grievance: grievance),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          margin:
+                          EdgeInsets.only(bottom: 14.h),
+                          padding:
+                          EdgeInsets.all(16.w),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius:
+                            BorderRadius.circular(16.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black
+                                    .withOpacity(0.04),
+                                blurRadius: 10,
+                                offset:
+                                const Offset(0, 4),
+                              )
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      grievance.id,
+                                      style: TextStyle(
+                                        fontSize: 12.sp,
+                                        color:
+                                        Colors.black54,
+                                      ),
+                                    ),
+                                    SizedBox(height: 6.h),
+                                    Text(
+                                      grievance.title,
+                                      maxLines: 1,
+                                      overflow:
+                                      TextOverflow
+                                          .ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        fontWeight:
+                                        FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Column(
+                                crossAxisAlignment:
+                                CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    padding:
+                                    EdgeInsets.symmetric(
+                                        horizontal: 12.w,
+                                        vertical: 5.h),
+                                    decoration:
+                                    BoxDecoration(
+                                      color: statusColor
+                                          .withOpacity(0.12),
+                                      borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                          20.r),
+                                    ),
+                                    child: Text(
+                                      grievance.status,
+                                      style: TextStyle(
+                                        fontSize: 11.sp,
+                                        fontWeight:
+                                        FontWeight
+                                            .w700,
+                                        color:
+                                        statusColor,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(height: 10.h),
+                                  Icon(
+                                    Icons
+                                        .arrow_forward_ios_rounded,
+                                    size: 14.sp,
+                                    color: Colors.grey,
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
                         ),
                       );
                     },
-                    child: Container(
-                      margin: EdgeInsets.only(bottom: 14.h),
-                      padding: EdgeInsets.all(16.w),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  grievance.id,
-                                  style: TextStyle(
-                                    fontSize: 12.sp,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                SizedBox(height: 6.h),
-                                Text(
-                                  grievance.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(height: 6.h),
-                                Text(
-                                  "2 days ago",
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 12.w, vertical: 5.h),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(20.r),
-                                ),
-                                child: Text(
-                                  grievance.status,
-                                  style: TextStyle(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: 10.h),
-                              Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                size: 14.sp,
-                                color: Colors.grey,
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
                   );
                 },
               ),

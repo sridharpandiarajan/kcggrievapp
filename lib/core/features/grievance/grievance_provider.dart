@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kcggriev/models/grievance_model.dart';
 import '../../network/network_provider.dart';
 import 'data/grievance_api_service.dart';
 import 'data/grievance_repository.dart';
@@ -17,6 +18,8 @@ final grievanceRepositoryProvider =
 });
 
 final grievanceControllerProvider =
-    NotifierProvider<GrievanceController, AsyncValue<void>>(
+NotifierProvider<
+    GrievanceController,
+    AsyncValue<List<GrievanceModel>>>(
   GrievanceController.new,
 );
