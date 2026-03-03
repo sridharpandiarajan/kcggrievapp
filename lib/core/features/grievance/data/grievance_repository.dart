@@ -5,6 +5,7 @@ class GrievanceRepository {
 
   GrievanceRepository(this._apiService);
 
+  /// CREATE GRIEVANCE
   Future<void> createGrievance({
     required String? title,
     required String description,
@@ -15,5 +16,11 @@ class GrievanceRepository {
       description: description,
       isAnonymous: isAnonymous,
     );
+  }
+
+  /// FETCH MY GRIEVANCES
+  Future<List<dynamic>> getMyGrievances() async {
+    final response = await _apiService.getMyGrievances();
+    return response;
   }
 }
