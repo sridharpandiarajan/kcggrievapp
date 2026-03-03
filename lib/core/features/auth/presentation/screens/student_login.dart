@@ -24,14 +24,13 @@ class _StudentLoginState extends ConsumerState<StudentLogin> {
     if (!_formKey.currentState!.validate()) return;
 
     ref.read(authControllerProvider.notifier).login(
-          email: regController.text.trim(),
+          registerNumber: regController.text.trim(),
           password: passController.text.trim(),
         );
   }
 
   @override
   Widget build(BuildContext context) {
-    /// ✅ Listen MUST be inside build
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
       if (next.status == AuthStatus.authenticated) {
         Navigator.pushReplacement(
@@ -99,27 +98,34 @@ class _StudentLoginState extends ConsumerState<StudentLogin> {
                     ),
                     SizedBox(height: 30.h),
 
+                    /// 🔥 REGISTER NUMBER FIELD
                     _buildInputField(
                       controller: regController,
-                      hint: "Register Number",
+                      hint: "Register Number (e.g. 9123205104)",
                       obscure: false,
                       maxLength: 10,
+                      keyboardType: TextInputType.number,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return "Enter Register Number";
                         }
-
+                        if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                          return "Register Number must be exactly 10 digits";
+                        }
+                        return null;
                       },
                     ),
 
                     SizedBox(height: 18.h),
 
+                    /// 🔥 PASSWORD FIELD
                     _buildInputField(
                       controller: passController,
-                      hint: "Password (DDMMYYYY)",
+                      hint: "Password",
                       obscure: _isObscure,
+                      maxLength: 20,
                       isPassword: true,
-                      maxLength: 8,
+                      keyboardType: TextInputType.visiblePassword,
                       onToggleVisibility: () {
                         setState(() {
                           _isObscure = !_isObscure;
@@ -129,7 +135,7 @@ class _StudentLoginState extends ConsumerState<StudentLogin> {
                         if (value == null || value.isEmpty) {
                           return "Enter Password";
                         }
-                       
+                        return null;
                       },
                     ),
 
@@ -193,6 +199,7 @@ class _StudentLoginState extends ConsumerState<StudentLogin> {
     required String hint,
     required bool obscure,
     required int maxLength,
+    required TextInputType keyboardType,
     bool isPassword = false,
     VoidCallback? onToggleVisibility,
     required String? Function(String?) validator,
@@ -212,8 +219,8 @@ class _StudentLoginState extends ConsumerState<StudentLogin> {
       child: TextFormField(
         controller: controller,
         obscureText: obscure,
-
-        keyboardType: TextInputType.emailAddress,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
         validator: validator,
         style: TextStyle(fontSize: 14.sp),
         decoration: InputDecoration(

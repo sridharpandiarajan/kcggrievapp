@@ -10,7 +10,7 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> login({
-    required String email,
+    required String registerNumber,
     required String password,
   }) async {
     state = AuthState.loading();
@@ -19,7 +19,7 @@ class AuthController extends Notifier<AuthState> {
       final repository = ref.read(authRepositoryProvider);
 
       await repository.login(
-        email: email,
+        registerNumber: registerNumber,
         password: password,
       );
 

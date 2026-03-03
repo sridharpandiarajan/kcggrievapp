@@ -6,13 +6,13 @@ class AuthApiService {
   AuthApiService(this._dio);
 
   Future<Map<String, dynamic>> login({
-    required String email,
+    required String registerNumber,
     required String password,
   }) async {
     final response = await _dio.post(
       '/api/auth/login',
       data: {
-        "email": email,
+        "registerNumber": registerNumber,
         "password": password,
       },
     );

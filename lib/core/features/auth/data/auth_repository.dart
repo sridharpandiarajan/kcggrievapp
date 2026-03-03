@@ -13,11 +13,11 @@ class AuthRepository {
   );
 
 Future<void> login({
-  required String email,
+  required String registerNumber ,
   required String password,
 }) async {
   final result = await _apiService.login(
-    email: email,
+    registerNumber: registerNumber,
     password: password,
   );
 
