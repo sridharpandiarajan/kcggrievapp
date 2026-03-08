@@ -1,5 +1,3 @@
-// lib/core/network/auth_interceptor.dart
-
 import 'package:dio/dio.dart';
 import '../storage/secure_storage_services.dart';
 
@@ -10,13 +8,15 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) async {
+      RequestOptions options,
+      RequestInterceptorHandler handler,
+      ) async {
+
     final token = await secureStorage.getAccessToken();
 
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = 'Bearer $token';
+      print("TOKEN ATTACHED: $token");
     }
 
     return handler.next(options);
@@ -24,12 +24,12 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(
-    DioException err,
-    ErrorInterceptorHandler handler,
-  ) async {
+      DioException err,
+      ErrorInterceptorHandler handler,
+      ) async {
+
     if (err.response?.statusCode == 401) {
-      // Token invalid or expired
-      await secureStorage.clearTokens();
+      print("401 detected");
     }
 
     return handler.next(err);

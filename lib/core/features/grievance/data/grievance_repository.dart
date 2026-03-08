@@ -23,4 +23,8 @@ class GrievanceRepository {
     final response = await _apiService.getMyGrievances();
     return response;
   }
+
+  Future<Map<String, dynamic>> getGrievanceById(String id) async {
+    return await _apiService.getGrievanceById(id);
+  }
 }

@@ -7,7 +7,7 @@ import 'dio_client.dart';
 
 /// Secure Storage Provider
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
-  return SecureStorageService();
+  return SecureStorageService.instance;
 });
 
 /// Dio Provider

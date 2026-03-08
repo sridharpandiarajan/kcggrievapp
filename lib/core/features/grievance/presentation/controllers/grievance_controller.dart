@@ -1,13 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
 import '../../grievance_provider.dart';
 import 'package:kcggriev/models/grievance_model.dart';
 
 class GrievanceController
     extends Notifier<AsyncValue<List<GrievanceModel>>> {
 
+  late Box cacheBox;
+
   @override
   AsyncValue<List<GrievanceModel>> build() {
-    return const AsyncData([]);
+
+    cacheBox = Hive.box('grievance_cache');
+
+    final cached = cacheBox.get('my_grievances');
+
+    if (cached != null) {
+      final List list = cached as List;
+
+      final grievances = list
+          .map((e) => GrievanceModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+
+      // Refresh silently in background
+      Future.microtask(fetchMyGrievances);
+
+      return AsyncData(grievances);
+    }
+
+    // If no cache, fetch normally
+    fetchMyGrievances();
+    return const AsyncLoading();
   }
 
   /// CREATE GRIEVANCE
@@ -16,7 +39,6 @@ class GrievanceController
     required String description,
     required bool isAnonymous,
   }) async {
-    state = const AsyncLoading();
 
     try {
       final repo = ref.read(grievanceRepositoryProvider);
@@ -36,7 +58,6 @@ class GrievanceController
 
   /// FETCH MY GRIEVANCES
   Future<void> fetchMyGrievances() async {
-    state = const AsyncLoading();
 
     try {
       final repo = ref.read(grievanceRepositoryProvider);
@@ -47,11 +68,27 @@ class GrievanceController
           .map((e) => GrievanceModel.fromJson(e))
           .toList();
 
+      // Update UI
       state = AsyncData(grievances);
+
+      // Save to cache
+      cacheBox.put(
+        'my_grievances',
+        grievances.map((g) => g.toJson()).toList(),
+      );
 
     } catch (e, st) {
       print("FETCH ERROR: $e");
       state = AsyncError(e, st);
     }
+  }
+
+  /// FETCH SINGLE GRIEVANCE
+  Future<GrievanceModel> fetchGrievanceById(String id) async {
+
+    final repo = ref.read(grievanceRepositoryProvider);
+    final response = await repo.getGrievanceById(id);
+
+    return GrievanceModel.fromJson(response);
   }
 }

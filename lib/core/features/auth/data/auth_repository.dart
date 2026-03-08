@@ -3,38 +3,45 @@
 import '../../../storage/secure_storage_services.dart';
 import '../../auth/data/auth_api_services.dart';
 
+// lib/features/auth/data/auth_repository.dart
+
 class AuthRepository {
   final AuthApiService _apiService;
   final SecureStorageService _secureStorage;
 
-  AuthRepository(
-    this._apiService,
-    this._secureStorage,
-  );
+  AuthRepository(this._apiService, this._secureStorage);
 
-Future<void> login({
-  required String registerNumber ,
-  required String password,
-}) async {
-  final result = await _apiService.login(
-    registerNumber: registerNumber,
-    password: password,
-  );
+  // lib/features/auth/data/auth_repository.dart
 
-  final token = result['token'];
-  print(token);
+  Future<dynamic> login({
+    required String registerNumber,
+    required String password,
+  }) async {
+    final result = await _apiService.login(
+      registerNumber: registerNumber,
+      password: password,
+    );
 
-  await _secureStorage.saveAccessToken(token);
-}
+    final userData = result['user']; // This map now contains {'reg_no': '...'}
+    final token = result['token'];
 
-  /// Check if user already logged in
-  Future<bool> isLoggedIn() async {
-    final token = await _secureStorage.getAccessToken();
-    return token != null;
-    
+    await _secureStorage.saveAccessToken(token);
+
+    return userData;
   }
 
-  /// Logout
+  Future<dynamic> getCurrentUser() async {
+    final token = await _secureStorage.getAccessToken();
+    if (token == null) return null;
+
+    try {
+      // Fetch the profile. Ensure AuthApiService returns the 'user' portion of the JSON
+      return await _apiService.getProfile(token);
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> logout() async {
     await _secureStorage.clearTokens();
   }

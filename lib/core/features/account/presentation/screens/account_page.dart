@@ -1,51 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:kcggriev/core/info/support_content.dart'; // Ensure this path matches your project structure
+import 'package:kcggriev/core/info/support_content.dart';
 import 'package:kcggriev/core/features/auth/presentation/screens/student_login.dart';
-import  '../../../../storage/secure_storage_services.dart';
+import 'package:kcggriev/core/features/auth/presentation/controllers/auth_state.dart';
+import 'package:kcggriev/core/features/auth/auth_provider.dart';
+import '../../../../storage/secure_storage_services.dart';
 
-class AccountPage extends StatefulWidget {
+class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
 
   @override
-  State<AccountPage> createState() => _AccountPageState();
+  ConsumerState<AccountPage> createState() => _AccountPageState();
 }
 
-class _AccountPageState extends State<AccountPage> {
+class _AccountPageState extends ConsumerState<AccountPage> {
   static const Color primaryColor = Color(0xFF141C46);
   static const Color backgroundColor = Color(0xFFF5F6F8);
   static const Color accentColor = Color(0xFF1E8E3E);
 
-  // Controllers are now based on the length of the external data
   late final List<ExpansionTileController> _controllers;
 
   @override
   void initState() {
     super.initState();
-    // Dynamically generate controllers based on the data provided in SupportContent
     _controllers = List.generate(
       SupportContent.data.length,
           (_) => ExpansionTileController(),
     );
   }
 
-Future<void> _handleLogout() async {
-  try {
-    await SecureStorageService().clearTokens();
+  Future<void> _handleLogout() async {
+    try {
+      // 1. Clear tokens from storage
+      await SecureStorageService.instance.clearTokens();
 
-    if (!mounted) return;
+      // 2. Update Riverpod state to unauthenticated
+      ref.read(authControllerProvider.notifier).logout();
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const StudentLogin(),
-      ),
-      (route) => false,
-    );
-  } catch (e) {
-    debugPrint("Logout error: $e");
+      if (!mounted) return;
+
+      // 3. Navigate to login and clear stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const StudentLogin()),
+            (route) => false,
+      );
+    } catch (e) {
+      debugPrint("Logout error: $e");
+    }
   }
-}
 
   void _handleExpansion(int index) {
     for (int i = 0; i < _controllers.length; i++) {
@@ -57,7 +61,17 @@ Future<void> _handleLogout() async {
 
   @override
   Widget build(BuildContext context) {
-    final supportItems = SupportContent.data; // Retrieve external text from your model
+    final authState = ref.watch(authControllerProvider);
+    final user = authState.user;
+    final supportItems = SupportContent.data;
+    // debugPrint("DEBUG: Data from DB is: $user");
+
+    // Show a loader if the app is still determining auth status
+    if (authState.status == AuthStatus.loading && user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: primaryColor)),
+      );
+    }
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -82,16 +96,27 @@ Future<void> _handleLogout() async {
         padding: EdgeInsets.symmetric(horizontal: 22.w, vertical: 10.h),
         child: Column(
           children: [
-            _buildProfileHeader(),
+            // Inside AccountPage build()
+            // lib/core/features/auth/presentation/screens/account_page.dart
+
+            // lib/core/features/auth/presentation/screens/account_page.dart
+
+            _buildProfileHeader(
+              // Use 'fullName' as seen in your debug log
+              name: user?['fullName'] ?? "Student",
+
+              // Since 'reg_no' is missing from the DB log, it will show "---"
+              // until the backend is updated to include it.
+              rollNumber: user?['reg_no'] ?? user?['registerNumber'] ?? "---",
+            ),
             SizedBox(height: 30.h),
             _buildSectionHeader("Personal Details"),
             SizedBox(height: 12.h),
-            _buildInfoCard(),
+            _buildInfoCard(user),
             SizedBox(height: 30.h),
             _buildSectionHeader("Information & Support"),
             SizedBox(height: 12.h),
 
-            /// BUILD ACCORDION FROM SEPARATED TEXT DATA
             Container(
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -131,6 +156,64 @@ Future<void> _handleLogout() async {
     );
   }
 
+  Widget _buildProfileHeader({required String name, required String rollNumber}) {
+    final String initial = name.isNotEmpty ? name[0].toUpperCase() : "S";
+
+    return Center(
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              CircleAvatar(
+                radius: 50.r,
+                backgroundColor: primaryColor,
+                child: Text(initial,
+                    style: TextStyle(fontSize: 32.sp, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  radius: 16.r,
+                  backgroundColor: accentColor,
+                  child: Icon(Icons.verified_user, color: Colors.white, size: 16.sp),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          Text(name,
+              style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w700, color: primaryColor)),
+          Text("Registration ID: $rollNumber",
+              style: TextStyle(fontSize: 14.sp, color: Colors.black45, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(dynamic user) {
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          _infoRow(Icons.business_center_outlined, "Department",
+              user?['department'] ?? user?['dept_name'] ?? "Not Provided"),
+          _divider(),
+          _infoRow(Icons.calendar_today_outlined, "Current Year",
+              user?['year'] ?? user?['current_year'] ?? "Not Provided"),
+          _divider(),
+          _infoRow(Icons.email_outlined, "Email ID",
+              user?['email'] ?? user?['email_id'] ?? "Not Provided"),
+        ],
+      ),
+    );
+  }
+
   Widget _buildExpansionTile({
     required int index,
     required IconData icon,
@@ -147,76 +230,16 @@ Future<void> _handleLogout() async {
         leading: Icon(icon, size: 22.sp, color: primaryColor.withOpacity(0.7)),
         title: Text(
           title,
-          style: TextStyle(
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
+          style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500, color: Colors.black87),
         ),
         children: [
           Padding(
             padding: EdgeInsets.only(left: 55.w, right: 20.w, bottom: 15.h),
             child: Text(
               content,
-              style: TextStyle(
-                fontSize: 13.sp,
-                color: Colors.black54,
-                height: 1.5,
-              ),
+              style: TextStyle(fontSize: 13.sp, color: Colors.black54, height: 1.5),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ================= PROFILE & INFO WIDGETS =================
-
-  Widget _buildProfileHeader() {
-    return Center(
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 50.r,
-                backgroundColor: primaryColor,
-                child: Text("S", style: TextStyle(fontSize: 32.sp, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: CircleAvatar(
-                  radius: 16.r,
-                  backgroundColor: accentColor,
-                  child: Icon(Icons.edit, color: Colors.white, size: 16.sp),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12.h),
-          Text("Sridhar P", style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w700, color: primaryColor)),
-          Text("ID: 9123205104", style: TextStyle(fontSize: 14.sp, color: Colors.black45, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard() {
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          _infoRow(Icons.business_center_outlined, "Department", "Information Technology"),
-          _divider(),
-          _infoRow(Icons.calendar_today_outlined, "Current Year", "III Year"),
-          _divider(),
-          _infoRow(Icons.email_outlined, "Email ID", "sridhar.p@institution.edu"),
         ],
       ),
     );
@@ -225,7 +248,8 @@ Future<void> _handleLogout() async {
   Widget _buildSectionHeader(String title) {
     return Row(
       children: [
-        Text(title, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700, color: primaryColor.withOpacity(0.8))),
+        Text(title,
+            style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.w700, color: primaryColor.withOpacity(0.8))),
       ],
     );
   }
@@ -255,110 +279,11 @@ Future<void> _handleLogout() async {
       onTap: () async {
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (context) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24.r), // Softer, more modern corners
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(24.w),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    /// ICON HEADER
-                    CircleAvatar(
-                      radius: 30.r,
-                      backgroundColor: Colors.red.withOpacity(0.1),
-                      child: Icon(Icons.logout_rounded,
-                          color: Colors.redAccent, size: 30.sp),
-                    ),
-                    SizedBox(height: 20.h),
-
-                    /// TITLE
-                    Text(
-                      "Confirm Logout",
-                      style: TextStyle(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        color: primaryColor, // Using your Dark Navy
-                      ),
-                    ),
-                    SizedBox(height: 10.h),
-
-                    /// DESCRIPTION
-                    Text(
-                      "Are you sure you want to sign out? You will need to login again to access your grievances.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: Colors.black54,
-                        height: 1.4,
-                      ),
-                    ),
-                    SizedBox(height: 28.h),
-
-                    /// ACTIONS
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 14.h),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              backgroundColor: Colors.grey.withOpacity(0.1),
-                            ),
-                            onPressed: () => Navigator.pop(context, false),
-                            child: Text(
-                              "Cancel",
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14.sp,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: TextButton(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 14.h),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              backgroundColor: Colors.redAccent,
-                            ),
-                            onPressed: _handleLogout,
-                            child: Text(
-                              "Logout",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14.sp,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+          builder: (context) => _buildLogoutDialog(),
         );
 
         if (confirm == true) {
-          /// 🔥 REMOVE ALL PREVIOUS SCREENS
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const StudentLogin(),
-            ),
-                (route) => false,
-          );
+          _handleLogout();
         }
       },
       child: Container(
@@ -373,19 +298,66 @@ Future<void> _handleLogout() async {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.logout_rounded,
-                  color: Colors.redAccent, size: 20.sp),
+              Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20.sp),
               SizedBox(width: 10.w),
-              Text(
-                "Logout Account",
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15.sp,
-                ),
-              ),
+              Text("Logout Account",
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w700, fontSize: 15.sp)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutDialog() {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+      child: Padding(
+        padding: EdgeInsets.all(24.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 30.r,
+              backgroundColor: Colors.red.withOpacity(0.1),
+              child: Icon(Icons.logout_rounded, color: Colors.redAccent, size: 30.sp),
+            ),
+            SizedBox(height: 20.h),
+            Text("Confirm Logout",
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w700, color: primaryColor)),
+            SizedBox(height: 10.h),
+            Text("Are you sure you want to sign out? You will need to login again to access your grievances.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14.sp, color: Colors.black54, height: 1.4)),
+            SizedBox(height: 28.h),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      backgroundColor: Colors.grey.withOpacity(0.1),
+                    ),
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text("Cancel", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
