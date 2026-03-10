@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../../../models/grievance_model.dart';
 import 'grievance_success_page.dart';
 import '../../grievance_provider.dart';
 
@@ -76,19 +77,26 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
     final isLoading = state.isLoading || _isSubmitting;
 
     // Robust Navigation Listener
-    ref.listen<AsyncValue>(grievanceControllerProvider, (previous, next) {
+    // Inside RegisterGrievancePage build method:
+    ref.listen<AsyncValue<List<GrievanceModel>>>(grievanceControllerProvider, (previous, next) {
       next.whenOrNull(
-        data: (_) {
-          HapticFeedback.lightImpact();
+        data: (grievances) {
+          if (_isSubmitting && grievances.isNotEmpty) {
+            HapticFeedback.lightImpact();
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const GrievanceSuccessPage(),
-            ),
-          );
+            // 3. Get the most recent grievance (usually the last one if added to end, or first if sorted)
+            final newGrievance = grievances.first;
+
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => GrievanceSuccessPage(grievance: newGrievance),
+              ),
+            );
+          }
         },
         error: (e, _) {
+          setState(() => _isSubmitting = false);
           _showErrorSnackBar("Submission failed. Please try again.");
         },
       );

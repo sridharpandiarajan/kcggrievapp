@@ -1,3 +1,5 @@
+import 'timeline_model.dart';
+
 class GrievanceModel {
   final String id;
   final String title;
@@ -6,6 +8,8 @@ class GrievanceModel {
   final String channel;
   final String category;
   final String submittedDate;
+  // 1. ADD THE TIMELINE FIELD
+  final List<TimelineModel> timeline;
 
   const GrievanceModel({
     required this.id,
@@ -15,9 +19,29 @@ class GrievanceModel {
     required this.channel,
     required this.category,
     required this.submittedDate,
+    required this.timeline, // 2. ADD TO CONSTRUCTOR
   });
 
   factory GrievanceModel.fromJson(Map<String, dynamic> json) {
+    // 3. PARSE THE TIMELINE LIST SAFELY
+    List<TimelineModel> parsedTimeline = [];
+    if (json['timeline'] != null && json['timeline'] is List) {
+      parsedTimeline = (json['timeline'] as List)
+          .map((e) => TimelineModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+
+    /// If backend does not send timeline, ensure at least "Submitted" exists
+    if (parsedTimeline.isEmpty) {
+      parsedTimeline.add(
+        TimelineModel(
+          status: "Submitted",
+          actor: "Student",
+          date: _formatDate(json['created_at']),
+        ),
+      );
+    }
+
     return GrievanceModel(
       id: _safeString(json['id']),
       title: _safeString(json['title']),
@@ -26,6 +50,7 @@ class GrievanceModel {
       channel: _safeString(json['channel_name'], defaultValue: "Yet to Assign"),
       category: _safeString(json['category_name'], defaultValue: "Yet to Assign"),
       submittedDate: _formatDate(json['created_at']),
+      timeline: parsedTimeline, // 4. PASS TO CONSTRUCTOR
     );
   }
 
@@ -39,6 +64,7 @@ class GrievanceModel {
       "channel": channel,
       "category": category,
       "submittedDate": submittedDate,
+      "timeline": timeline.map((e) => e.toJson()).toList(), // 5. ADD TO TOJSON
     };
   }
 

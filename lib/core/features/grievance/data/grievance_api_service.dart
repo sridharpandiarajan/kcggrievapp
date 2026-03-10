@@ -28,14 +28,7 @@ import '../../../storage/secure_storage_services.dart';
 
     Future<List<dynamic>> getMyGrievances() async {
 
-      final userId = await SecureStorageService.instance.getAccessToken();
-
-      final response = await _dio.get(
-        '/api/grievances/my',
-        queryParameters: {
-          "userId": userId
-        },
-      );
+      final response = await _dio.get('/api/grievances/my');
 
       if (response.statusCode == 200) {
 
@@ -50,10 +43,9 @@ import '../../../storage/secure_storage_services.dart';
         }
 
         return [];
-
-      } else {
-        throw Exception("Failed to fetch grievances");
       }
+
+      throw Exception("Failed to fetch grievances");
     }
 
     Future<Map<String, dynamic>> getGrievanceById(String id) async {

@@ -184,7 +184,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
           SizedBox(height: 12.h),
           Text(name,
               style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w700, color: primaryColor)),
-          Text("Registration ID: $rollNumber",
+          Text("Register No.: $rollNumber",
               style: TextStyle(fontSize: 14.sp, color: Colors.black45, fontWeight: FontWeight.w500)),
         ],
       ),
