@@ -144,14 +144,40 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
   Widget _buildMyGrievancesLink(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(8.r),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyGrievancesPage())),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MyGrievancesPage()),
+      ),
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 6.h),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("My Grievances", style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.w600)),
-            Icon(Icons.chevron_right_rounded, size: 22.sp, color: Colors.grey.shade600),
+            /// Left side title
+            Text(
+              "My Grievances",
+              style: TextStyle(fontSize: 17.sp, fontWeight: FontWeight.w600),
+            ),
+
+            /// Right side: Text + Arrow
+            Row(
+              children: [
+                Text(
+                  "View All",
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(width: 4.w), // Space between text and arrow
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22.sp,
+                  color: Colors.grey.shade600,
+                ),
+              ],
+            ),
           ],
         ),
       ),
