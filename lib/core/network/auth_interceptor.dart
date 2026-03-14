@@ -23,15 +23,16 @@ class AuthInterceptor extends Interceptor {
   }
 
   @override
-  void onError(
-      DioException err,
-      ErrorInterceptorHandler handler,
-      ) async {
-
+  void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == 401) {
-      print("401 detected");
-    }
+      print("401 Unauthorized detected - Clearing session");
 
+      // Clear the stored token
+      await secureStorage.clearTokens();
+
+      // Optional: You could use a global EventBus or a StateProvider
+      // to force the UI to navigate back to the Login Screen.
+    }
     return handler.next(err);
   }
 }

@@ -1,75 +1,100 @@
-// lib/core/features/auth/presentation/controllers/auth_controller.dart
+                                                                    // lib/core/features/auth/presentation/controllers/auth_controller.dart
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth_provider.dart';
-import 'auth_state.dart';
-import '../../../../storage/secure_storage_services.dart';
+                                                                    import 'package:flutter_riverpod/flutter_riverpod.dart';
+                                                                    import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+                                                                    import '../../auth_provider.dart';
+                                                                    import 'auth_state.dart';
+                                                                    import '../../../../storage/secure_storage_services.dart';
 
-class AuthController extends Notifier<AuthState> {
+                                                                    class AuthController extends Notifier<AuthState> {
 
-  @override
-  AuthState build() {
-    return AuthState.initial();
-  }
+                                                                      @override
+                                                                      AuthState build() {
+                                                                        return AuthState.initial();
+                                                                      }
 
-  /// LOGIN
-  Future<void> login({
-    required String registerNumber,
-    required String password,
-  }) async {
+                                                                      /// LOGIN
+                                                                      Future<void> login({
+                                                                        required String registerNumber,
+                                                                        required String password,
+                                                                      }) async {
 
-    state = AuthState.loading();
+                                                                        state = AuthState.loading();
 
-    try {
-      final repository = ref.read(authRepositoryProvider);
+                                                                        try {
+                                                                          final repository = ref.read(authRepositoryProvider);
 
-      final userData = await repository.login(
-        registerNumber: registerNumber,
-        password: password,
-      );
+                                                                          final userData = await repository.login(
+                                                                            registerNumber: registerNumber,
+                                                                            password: password,
+                                                                          );
 
-      print("LOGIN USER DATA: $userData");
+                                                                          print("LOGIN USER DATA: $userData");
 
-      /// Token is already saved in AuthRepository
-      state = AuthState.authenticated(userData);
+                                                                          /// Token is already saved in AuthRepository
+                                                                          ///
+                                                                          // This is likely what is happening in your AuthController:
+                                                                          if (userData != null) {
+                                                                            state = AuthState.authenticated(userData);
+                                                                          } else {
+                                                                            print("SESSION EXPIRED OR INVALID"); // 👈 This line is printing in your logs
+                                                                            await logout(); // 👈 This is why your token is being deleted immediately
+                                                                          }
 
-    } catch (e) {
+                                                                        } catch (e) {
 
-      print("LOGIN ERROR: $e");
+                                                                          print("LOGIN ERROR: $e");
 
-      state = AuthState.error(e.toString());
-    }
-  }
+                                                                          state = AuthState.error(e.toString());
+                                                                        }
+                                                                      }
 
-  /// LOGOUT
-  Future<void> logout() async {
+                                                                      /// LOGOUT
+                                                                      Future<void> logout() async {
 
-    final repository = ref.read(authRepositoryProvider);
-    await repository.logout();
+                                                                        final repository = ref.read(authRepositoryProvider);
+                                                                        await repository.logout();
 
-    await SecureStorageService.instance.clearTokens();
+                                                                        await SecureStorageService.instance.clearTokens();
 
-    print("SESSION CLEARED");
+                                                                        print("SESSION CLEARED");
 
-    state = AuthState.unauthenticated();
-  }
+                                                                        state = AuthState.unauthenticated();
+                                                                      }
 
-  /// CHECK LOGIN STATUS (Splash Screen)
-  Future<void> checkAuthStatus() async {
+                                                                      /// CHECK LOGIN STATUS (Splash Screen)
+                                                                      /// CHECK LOGIN STATUS (Splash Screen)
+                                                                      // lib/core/features/auth/presentation/controllers/auth_controller.dart
 
-    final session = await SecureStorageService.instance.getAccessToken();
+                                                                      /// CHECK LOGIN STATUS (Used by Splash Screen)
+                                                                      Future<void> checkAuthStatus() async {
 
-    print("SESSION FROM STORAGE: $session");
+                                                                        print("CHECKING SESSION...");
 
-    if (session != null && session.isNotEmpty) {
+                                                                        final token = await SecureStorageService.instance.getAccessToken();
 
-      /// Only confirms login, user data will be fetched again if needed
-      state = AuthState.authenticated(null);
+                                                                        if (token == null || token.isEmpty) {
+                                                                          print("NO TOKEN FOUND");
+                                                                          state = AuthState.unauthenticated();
+                                                                          return;
+                                                                        }
 
-    } else {
+                                                                        try {
+                                                                          final repository = ref.read(authRepositoryProvider);
 
-      state = AuthState.unauthenticated();
+                                                                          final user = await repository.getCurrentUser();
 
-    }
-  }
-}
+                                                                          if (user != null) {
+                                                                            print("SESSION VALID");
+                                                                            state = AuthState.authenticated(user);
+                                                                          } else {
+                                                                            print("TOKEN INVALID");
+                                                                            await logout();
+                                                                          }
+
+                                                                        } catch (e) {
+                                                                          print("AUTH CHECK FAILED: $e");
+                                                                          state = AuthState.unauthenticated();
+                                                                        }
+                                                                      }
+                                                                    }

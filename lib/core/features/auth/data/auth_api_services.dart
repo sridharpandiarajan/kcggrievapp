@@ -5,12 +5,13 @@ class AuthApiService {
 
   AuthApiService(this._dio);
 
-  // lib/features/auth/data/auth_api_services.dart
-
+  /// LOGIN
+  /// Generates token
   Future<Map<String, dynamic>> login({
     required String registerNumber,
     required String password,
   }) async {
+
     final response = await _dio.post(
       '/api/auth/login',
       data: {
@@ -19,40 +20,56 @@ class AuthApiService {
       },
     );
 
-    // If your backend returns { "data": { "token": "...", "user": { "reg_no": "..." } } }
-    final token = response.data['data']['token'];
-    final user = response.data['data']['user'];
+    print("LOGIN RESPONSE: ${response.data}");
+
+    final data = response.data['data'];
 
     return {
-      "token": token,
-      "user": user, // This user map contains the 'reg_no'
+      "token": data['token'],
+      "user": data['user'],
     };
   }
 
-  /// 🔥 ADDED: Fetches user profile data using the stored token
-  Future<dynamic> getProfile(String token) async {
+  /// FETCH PROFILE
+  /// Token automatically attached by AuthInterceptor
+  Future<dynamic> getProfile() async {
     try {
-      final response = await _dio.get(
-        '/api/auth/profile', // Ensure this matches your backend endpoint
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
 
-      // Check if the response is successful based on your API structure
-      if (response.data['success'] == true) {
-        return response.data['data']['user'];
+      final response = await _dio.get('/api/auth/profile');
+
+      print("PROFILE RESPONSE: ${response.data}");
+
+      final data = response.data;
+
+      // Support multiple backend response formats
+      final user =
+          data['data']?['user'] ??
+              data['user'] ??
+              data['data'];
+
+      if (user != null) {
+        return user;
       }
 
       return null;
+
     } on DioException catch (e) {
-      // If token is expired or invalid (401), returning null allows
-      // the repository to trigger a clean logout/unauthenticated state.
+
+      print("PROFILE ERROR: ${e.message}");
+
+      // Only treat 401 as invalid token
       if (e.response?.statusCode == 401) {
         return null;
       }
+
+      // Network issues (Render cold start / timeout)
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+
+        print("SERVER WAKE-UP DELAY");
+        throw Exception("Server timeout");
+      }
+
       throw Exception(e.message ?? "Failed to fetch profile");
     }
   }

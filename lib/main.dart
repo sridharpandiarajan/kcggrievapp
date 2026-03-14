@@ -10,7 +10,6 @@ void main() async {
 
   await Hive.initFlutter();
   await Hive.openBox('grievance_cache');
-  await SecureStorageService.instance.clearTokens();
   runApp(
     const ProviderScope(
       child: MyApp(),

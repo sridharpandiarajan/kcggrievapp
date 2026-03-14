@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // For Clipboard
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../models/grievance_model.dart';
 import '../../grievance_provider.dart';
-import 'status_timeline_page.dart'; // Ensure this import exists
+import 'status_timeline_page.dart';
 
 class GrievanceDetailsPage extends ConsumerStatefulWidget {
   final GrievanceModel grievance;
@@ -35,17 +35,19 @@ class _GrievanceDetailsPageState extends ConsumerState<GrievanceDetailsPage> {
   }
 
   Color getStatusTextColor(String status) {
-    switch (status) {
-      case "Resolved": return const Color(0xFF1E8E3E);
-      case "Rejected": return const Color(0xFFD93025);
+    switch (status.toUpperCase()) {
+      case "RESOLVED": return const Color(0xFF34A853);
+      case "REJECTED": return const Color(0xFFD93025);
+      case "SUBMITTED": return const Color(0xFFF9AB00);
       default: return const Color(0xFFF9AB00);
     }
   }
 
   Color getStatusBgColor(String status) {
-    switch (status) {
-      case "Resolved": return const Color(0xFFE8F5E9);
-      case "Rejected": return const Color(0xFFFFEBEB);
+    switch (status.toUpperCase()) {
+      case "RESOLVED": return const Color(0xFFE6F4EA);
+      case "REJECTED": return const Color(0xFFFFEBEB);
+      case "SUBMITTED": return const Color(0xFFFFF7E6);
       default: return const Color(0xFFFFF7E6);
     }
   }
@@ -53,19 +55,24 @@ class _GrievanceDetailsPageState extends ConsumerState<GrievanceDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6F8),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
-        leading: const BackButton(color: Colors.black),
+        surfaceTintColor: Colors.white,
+        leadingWidth: 48.w,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black, size: 20.sp),
+          onPressed: () => Navigator.pop(context),
+        ),
         centerTitle: true,
         title: Text(
           "Grievance Details",
-          style: TextStyle(
-            fontSize: 16.sp,
-            color: Colors.black,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontSize: 18.sp, color: const Color(0xFF141C46), fontWeight: FontWeight.w700),
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(1.h),
+          child: Container(color: Colors.grey.shade100, height: 1.h),
         ),
       ),
       body: FutureBuilder<GrievanceModel>(
@@ -75,70 +82,50 @@ class _GrievanceDetailsPageState extends ConsumerState<GrievanceDetailsPage> {
             return const Center(child: CircularProgressIndicator(color: Color(0xFF141C46)));
           }
 
-          if (snapshot.hasError) {
-            return _buildErrorState();
-          }
-
-          final grievance = snapshot.data!;
+          final grievance = snapshot.data ?? widget.grievance;
 
           return SingleChildScrollView(
-            padding: EdgeInsets.all(18.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 20.h),
             physics: const BouncingScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                /// ID & Copy Action
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Grievance ID: ${grievance.id}",
-                      style: TextStyle(fontSize: 12.sp, color: Colors.black54, fontWeight: FontWeight.w500),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Clipboard.setData(ClipboardData(text: grievance.id));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("ID copied to clipboard"), behavior: SnackBarBehavior.floating),
-                        );
-                      },
-                      child: Icon(Icons.copy_rounded, size: 16.sp, color: Colors.blue),
-                    ),
-                  ],
+                Text(
+                  "Grievance ID: ${grievance.id}",
+                  style: TextStyle(fontSize: 13.sp, color: Colors.blueGrey.shade400, fontWeight: FontWeight.w500),
                 ),
-                SizedBox(height: 8.h),
-
+                SizedBox(height: 6.h),
                 Text(
                   grievance.title,
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: const Color(0xFF141C46)),
+                  style: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w800, color: const Color(0xFF141C46)),
                 ),
-                SizedBox(height: 20.h),
+                SizedBox(height: 25.h),
 
-                _sectionLabel("Description"),
-                SizedBox(height: 10.h),
+                _sectionLabel("Description:"),
+                SizedBox(height: 12.h),
                 Container(
                   width: double.infinity,
                   padding: EdgeInsets.all(16.w),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14.r),
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(12.r),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Text(
                     grievance.description.isNotEmpty ? grievance.description : "No description provided",
-                    style: TextStyle(fontSize: 13.sp, height: 1.6, color: Colors.black87),
+                    style: TextStyle(fontSize: 14.sp, height: 1.4, color: const Color(0xFF4A4A4A)),
                   ),
                 ),
-                SizedBox(height: 24.h),
+                SizedBox(height: 25.h),
 
-                _sectionLabel("Details"),
-                SizedBox(height: 10.h),
-                _buildInfoCard(grievance),
-                SizedBox(height: 24.h),
+                _buildDetailRow("Channel", grievance.channel),
+                _buildDetailRow("Category", grievance.category),
+                _buildDetailRow("Submitted Date", grievance.submittedDate),
+                _buildDetailRow("Status", grievance.status, isStatus: true),
 
-                _sectionLabel("Actions"),
-                SizedBox(height: 10.h),
-                _buildActionsCard(grievance),
+                SizedBox(height: 30.h),
+                _buildActionsSection(grievance),
+                SizedBox(height: 40.h),
               ],
             ),
           );
@@ -147,138 +134,159 @@ class _GrievanceDetailsPageState extends ConsumerState<GrievanceDetailsPage> {
     );
   }
 
-  // --- UI Helper Components ---
-
   Widget _sectionLabel(String text) => Text(
     text,
-    style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: Colors.black54),
+    style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w500, color: Colors.grey.shade600),
   );
 
-  Widget _buildInfoCard(GrievanceModel grievance) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14.r)),
-      child: Column(
-        children: [
-          _infoRow("Channel", grievance.channel),
-          _infoRow("Category", grievance.category),
-          _infoRow("Submitted Date", grievance.submittedDate),
-          _infoRow(
-            "Status",
-            grievance.status,
-            isStatus: true,
-            statusTextColor: getStatusTextColor(grievance.status),
-            statusBgColor: getStatusBgColor(grievance.status),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsCard(GrievanceModel grievance) {
-    return Container(
-      padding: EdgeInsets.all(16.w),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.r)
-      ),
-      child: Column(
-        children: [
-          // Safety check: if timeline is empty, show 0 attachments
-          _actionTile(
-              "Attachments (${grievance.timeline.isNotEmpty ? 2 : 0})",
-              isLink: true
-          ),
-          SizedBox(height: 16.h),
-          _primaryButton("View Status Timeline", () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StatusTimelinePage(
-                  timeline: grievance.timeline, // Now this works!
-                  grievanceId: grievance.id,
-                ),
-              ),
-            );
-          }),
-          SizedBox(height: 12.h),
-          _outlineButton("View Final Remarks", () {
-            // Your remarks logic
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(String label, String value, {bool isStatus = false, Color? statusTextColor, Color? statusBgColor}) {
+  Widget _buildDetailRow(String label, String value, {bool isStatus = false}) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 14.h),
+      padding: EdgeInsets.symmetric(vertical: 10.h),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(label, style: TextStyle(fontSize: 13.sp, color: Colors.black54)),
+          // 1. Label
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.sp,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+
+          // 2. Minimum Gap
+          // This ensures the label and value never actually touch
+          SizedBox(width: 16.w),
+
+          // 3. Spacer pushes everything else to the right
+          const Spacer(),
+
+          // 4. Value Side
           if (isStatus)
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-              decoration: BoxDecoration(color: statusBgColor, borderRadius: BorderRadius.circular(20.r)),
-              child: Text(value, style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w800, color: statusTextColor)),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: getStatusBgColor(value),
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+              child: Text(
+                value.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 10.sp, // Slightly smaller for status tags
+                  fontWeight: FontWeight.w900,
+                  color: getStatusTextColor(value),
+                ),
+              ),
             )
           else
-            Text(value.isNotEmpty ? value : "N/A", style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w600)),
+          // Expanded is safer here than Flexible to ensure
+          // we use all available space without overlapping
+            Expanded(
+              flex: 3,
+              child: Text(
+                value.isNotEmpty ? value : "Yet to Assign",
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _actionTile(String text, {bool isLink = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.attachment_rounded, size: 18.sp, color: const Color(0xFF141C46)),
-            SizedBox(width: 8.w),
-            Text(text, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.w500)),
-          ],
-        ),
-        if (isLink) Icon(Icons.arrow_forward_ios_rounded, size: 12.sp, color: Colors.grey),
-      ],
-    );
-  }
-
-  Widget _primaryButton(String text, VoidCallback onTap) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFF141C46),
-        minimumSize: Size(double.infinity, 48.h),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-        elevation: 0,
+  Widget _buildActionsSection(GrievanceModel grievance) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: Colors.grey.withOpacity(0.1)),
       ),
-      child: Text(text, style: TextStyle(color: Colors.white, fontSize: 14.sp, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _outlineButton(String text, VoidCallback onTap) {
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        minimumSize: Size(double.infinity, 48.h),
-        side: const BorderSide(color: Color(0xFF141C46)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-      ),
-      child: Text(text, style: TextStyle(color: const Color(0xFF141C46), fontSize: 14.sp, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Text("Could not load latest details"),
-          TextButton(onPressed: () => setState(() => _loadGrievance()), child: const Text("Retry")),
+          Text("Actions", style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.w700, color: Colors.black)),
+          SizedBox(height: 14.h),
+          InkWell(
+            onTap: () {},
+            borderRadius: BorderRadius.circular(8.r),
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: 8.h, horizontal: 4.w),
+              child: Row(
+                children: [
+                  Icon(Icons.link_rounded, size: 20.sp, color: Colors.grey.shade600),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      "Attachments (${grievance.timeline.isNotEmpty ? 2 : 0})",
+                      style: TextStyle(fontSize: 13.sp, color: Colors.grey.shade800, fontWeight: FontWeight.w500),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Text("View", style: TextStyle(fontSize: 13.sp, color: const Color(0xFF141C46), fontWeight: FontWeight.w700)),
+                  SizedBox(width: 4.w),
+                  Icon(Icons.arrow_forward_rounded, size: 16.sp, color: const Color(0xFF141C46)),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: 18.h),
+          _actionButton(
+            text: "View Status Timeline",
+            isPrimary: true,
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => StatusTimelinePage(timeline: grievance.timeline, grievanceId: grievance.id)));
+            },
+          ),
+          SizedBox(height: 10.h),
+          _actionButton(
+            text: "View Final Remarks",
+            isPrimary: false,
+            onTap: () {},
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _actionButton({required String text, required bool isPrimary, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12.r),
+      child: Container(
+        height: 48.h,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: isPrimary ? const Color(0xFF0D1435) : Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          border: isPrimary ? null : Border.all(color: Colors.grey.shade300, width: 1),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Row(
+            children: [
+              SizedBox(width: 22.sp),
+              Expanded(
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: isPrimary ? Colors.white : const Color(0xFF141C46), fontSize: 13.sp, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: isPrimary ? Colors.white : const Color(0xFF141C46), size: 22.sp),
+            ],
+          ),
+        ),
       ),
     );
   }

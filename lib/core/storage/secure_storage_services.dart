@@ -1,32 +1,48 @@
 // lib/core/storage/secure_storage_service.dart
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
-
   SecureStorageService._();
-
   static final SecureStorageService instance = SecureStorageService._();
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  // Define options as a constant to ensure read/write use the same Keystore alias
+  static const _androidOptions = AndroidOptions(
+    encryptedSharedPreferences: true,
+  );
 
-  static const String _accessTokenKey = 'access_token';
+  final _storage = const FlutterSecureStorage(
+    aOptions: _androidOptions,
+  );
 
-  /// Save access token
+  static const String _tokenKey = 'auth_token';
+
   Future<void> saveAccessToken(String token) async {
-    await _storage.write(
-      key: _accessTokenKey,
-      value: token,
-    );
+    try {
+      await _storage.write(key: _tokenKey, value: token);
+      print("STORAGE: Token saved successfully");
+    } catch (e) {
+      print("STORAGE ERROR (SAVE): $e");
+    }
   }
 
-  /// Get access token
   Future<String?> getAccessToken() async {
-    return await _storage.read(key: _accessTokenKey);
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      print("STORAGE: Read - ${token != null ? 'TOKEN FOUND' : 'NULL'}");
+      return token;
+    } catch (e) {
+      print("STORAGE ERROR (READ): $e");
+      return null;
+    }
   }
 
-  /// Clear tokens
   Future<void> clearTokens() async {
-    await _storage.delete(key: _accessTokenKey);
+    print("STORAGE: DELETE CALLED - CHECK STACK TRACE");
+    await _storage.delete(key: _tokenKey);
+  }
+
+  Future<void> debugLogAll() async {
+    final all = await _storage.readAll();
+    print("DEBUG ALL STORAGE KEYS: ${all.keys}");
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart'; // Added for Cupertino Refresh
 import 'package:flutter/services.dart';  // Added for Haptics
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 import 'package:kcggriev/core/features/grievance/presentation/screens/register_grievance_page.dart';
 import '../../../grievance/grievance_provider.dart';
 import '../../../grievance/presentation/screens/grievance_details_page.dart';
@@ -264,27 +265,87 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
     );
   }
 
+  /// RELATIVE TIME LOGIC (Consistent with MyGrievancesPage)
+  String _getTimeAgo(String dateString) {
+    try {
+      // Assumes format "dd/MM/yyyy". Adjust if your format differs.
+      DateTime submittedDate = DateFormat("dd/MM/yyyy").parse(dateString);
+      DateTime now = DateTime.now();
+
+      // Normalize to date-only for "Today" calculation
+      DateTime today = DateTime(now.year, now.month, now.day);
+      DateTime submittedDay = DateTime(submittedDate.year, submittedDate.month, submittedDate.day);
+
+      final diffInDays = today.difference(submittedDay).inDays;
+
+      if (diffInDays <= 0) return "Today";
+
+      if (diffInDays < 31) {
+        return "$diffInDays ${diffInDays == 1 ? "day" : "days"} ago";
+      }
+
+      if (diffInDays < 365) {
+        int months = (diffInDays / 30).floor();
+        return "$months ${months == 1 ? "month" : "months"} ago";
+      }
+
+      int years = (diffInDays / 365).floor();
+      return "$years ${years == 1 ? "year" : "years"} ago";
+    } catch (e) {
+      return dateString; // Fallback
+    }
+  }
+
   Widget _grievanceCard(BuildContext context, GrievanceModel grievance) {
     final statusColor = getStatusColor(grievance.status);
     return Padding(
       padding: EdgeInsets.only(bottom: 14.h),
       child: InkWell(
         borderRadius: BorderRadius.circular(16.r),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GrievanceDetailsPage(grievance: grievance))),
+        onTap: () {
+          HapticFeedback.lightImpact(); // Snappy feedback on tap
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => GrievanceDetailsPage(grievance: grievance))
+          );
+        },
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          decoration: BoxDecoration(color: const Color(0xFFF1F3F6), borderRadius: BorderRadius.circular(16.r)),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F3F6),
+            borderRadius: BorderRadius.circular(16.r),
+            // Optional: slight border to match premium look
+            border: Border.all(color: Colors.black.withOpacity(0.03)),
+          ),
           child: Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(grievance.id, style: TextStyle(fontSize: 12.sp, color: Colors.black54)),
+                    Text(
+                        grievance.id,
+                        style: TextStyle(fontSize: 11.sp, color: Colors.blueGrey.shade300, fontWeight: FontWeight.w600)
+                    ),
                     SizedBox(height: 6.h),
-                    Text(grievance.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w600)),
-                    SizedBox(height: 6.h),
-                    Text(grievance.submittedDate, style: TextStyle(fontSize: 12.sp, color: Colors.grey)),
+                    Text(
+                        grievance.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: const Color(0xFF141C46))
+                    ),
+                    SizedBox(height: 8.h),
+                    // UPDATED TIME DISPLAY
+                    Row(
+                      children: [
+                        Icon(Icons.access_time_rounded, size: 12.sp, color: Colors.grey),
+                        SizedBox(width: 4.w),
+                        Text(
+                            _getTimeAgo(grievance.submittedDate),
+                            style: TextStyle(fontSize: 11.sp, color: Colors.grey.shade600, fontWeight: FontWeight.w500)
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -293,11 +354,17 @@ class _StudentDashboardState extends ConsumerState<StudentDashboard> {
                 children: [
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20.r)),
-                    child: Text(grievance.status, style: TextStyle(fontSize: 11.sp, fontWeight: FontWeight.w700, color: statusColor)),
+                    decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8.r)
+                    ),
+                    child: Text(
+                        grievance.status,
+                        style: TextStyle(fontSize: 10.sp, fontWeight: FontWeight.w800, color: statusColor)
+                    ),
                   ),
                   SizedBox(height: 12.h),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 16.sp, color: Colors.grey.shade500),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 16.sp, color: Colors.grey.shade400),
                 ],
               ),
             ],

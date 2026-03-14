@@ -13,31 +13,36 @@ class AuthRepository {
 
   // lib/features/auth/data/auth_repository.dart
 
-  Future<dynamic> login({
-    required String registerNumber,
-    required String password,
-  }) async {
+  // lib/features/auth/data/auth_repository.dart
+
+  Future<dynamic> login({required String registerNumber, required String password}) async {
     final result = await _apiService.login(
       registerNumber: registerNumber,
       password: password,
     );
 
-    final userData = result['user']; // This map now contains {'reg_no': '...'}
+    final userData = result['user'];
     final token = result['token'];
 
+    // CRITICAL: Await this!
     await _secureStorage.saveAccessToken(token);
 
     return userData;
   }
+
+  // lib/features/auth/data/auth_repository.dart
 
   Future<dynamic> getCurrentUser() async {
     final token = await _secureStorage.getAccessToken();
     if (token == null) return null;
 
     try {
-      // Fetch the profile. Ensure AuthApiService returns the 'user' portion of the JSON
-      return await _apiService.getProfile(token);
+      // Call the API to get user info using the token
+      final userData = await _apiService.getProfile();
+      return userData; // Returns the user map if valid, null if 401
     } catch (e) {
+      // If there's a network error, you might want to still allow
+      // offline access or rethrow. For now, we return null to force login.
       return null;
     }
   }

@@ -23,6 +23,13 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
   bool _isSubmitting = false;
   static const Color primaryColor = Color(0xFF141C46);
 
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
   // --- Logic ---
 
   Future<void> _pickFile() async {
@@ -63,9 +70,7 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
     await HapticFeedback.heavyImpact();
 
     await ref.read(grievanceControllerProvider.notifier).createGrievance(
-      title: titleController.text
-          .trim()
-          .isEmpty ? null : titleController.text.trim(),
+      title: titleController.text.trim().isEmpty ? null : titleController.text.trim(),
       description: descriptionController.text.trim(),
       isAnonymous: false,
     );
@@ -76,22 +81,16 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
     final state = ref.watch(grievanceControllerProvider);
     final isLoading = state.isLoading || _isSubmitting;
 
-    // Robust Navigation Listener
-    // Inside RegisterGrievancePage build method:
+    // Submission listener
     ref.listen<AsyncValue<List<GrievanceModel>>>(grievanceControllerProvider, (previous, next) {
       next.whenOrNull(
         data: (grievances) {
           if (_isSubmitting && grievances.isNotEmpty) {
             HapticFeedback.lightImpact();
-
-            // 3. Get the most recent grievance (usually the last one if added to end, or first if sorted)
             final newGrievance = grievances.first;
-
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) => GrievanceSuccessPage(grievance: newGrievance),
-              ),
+              MaterialPageRoute(builder: (_) => GrievanceSuccessPage(grievance: newGrievance)),
             );
           }
         },
@@ -103,7 +102,7 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
     });
 
     return PopScope(
-      canPop: !isLoading && titleController.text.isEmpty && descriptionController.text.isEmpty,
+      canPop: !isLoading && titleController.text.isEmpty && descriptionController.text.isEmpty && pickedFiles.isEmpty,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         _showDiscardDialog();
@@ -125,10 +124,19 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
                 child: ListView(
                   padding: EdgeInsets.all(22.w),
                   children: [
-                    _label("Title (optional)"),
+                    // TITLE WITH WORD COUNT UX
+                    _labelWithWordCount("Title", titleController),
                     SizedBox(height: 8.h),
-                    _textField(controller: titleController, hint: "Short title of your issue", enabled: !isLoading),
+                    _textField(
+                      controller: titleController,
+                      hint: "Short title of your issue",
+                      enabled: !isLoading,
+                      maxLength: 80, // Character limit applied only here
+                      validator: (val) => val == null || val.isEmpty ? "Please enter a title" : null,
+                    ),
+
                     SizedBox(height: 24.h),
+
                     _label("Description (required)"),
                     SizedBox(height: 8.h),
                     _textField(
@@ -137,8 +145,11 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
                       maxLines: 5,
                       enabled: !isLoading,
                       validator: (val) => val == null || val.isEmpty ? "Please enter a description" : null,
+                      // Description has no maxLength
                     ),
+
                     SizedBox(height: 24.h),
+
                     _label("Attachments (PDF, Max 10MB)"),
                     SizedBox(height: 12.h),
                     _buildFilePickerBtn(isLoading),
@@ -155,6 +166,44 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
   }
 
   // --- Sub-Widgets ---
+
+  Widget _labelWithWordCount(String text, TextEditingController controller) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _label(text),
+      ],
+    );
+  }
+
+  Widget _textField({
+    required TextEditingController controller,
+    required String hint,
+    int maxLines = 1,
+    bool enabled = true,
+    String? Function(String?)? validator,
+    int? maxLength,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      enabled: enabled,
+      validator: validator,
+      maxLength: maxLength,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+      style: TextStyle(fontSize: 14.sp),
+      decoration: InputDecoration(
+        hintText: hint,
+        filled: true,
+        fillColor: enabled ? Colors.white : Colors.grey.shade100,
+        counterStyle: TextStyle(fontSize: 10.sp, color: Colors.grey),
+        // If maxLength is null, don't show the character counter UI
+        counterText: maxLength == null ? "" : null,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey.shade300)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey.shade300)),
+      ),
+    );
+  }
 
   Widget _buildSubmitButton(bool isLoading) {
     return Container(
@@ -180,7 +229,7 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
             children: [
               SizedBox(height: 18.h, width: 18.w, child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
               SizedBox(width: 12.w),
-              Text("Submitting your Grievance...", style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text("Submitting...", style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold, color: Colors.white)),
             ],
           )
               : Text("Submit Grievance", style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -225,50 +274,22 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
           width: double.infinity,
           padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
           decoration: BoxDecoration(
-            // Using a very light version of your primary color for the background
             color: primaryColor.withOpacity(0.04),
             borderRadius: BorderRadius.circular(16.r),
-            // Dashed border effect (Simulated with BorderSide and opacity)
-            border: Border.all(
-              color: primaryColor.withOpacity(0.2),
-              width: 1.5,
-              style: BorderStyle.solid,
-            ),
+            border: Border.all(color: primaryColor.withOpacity(0.2), width: 1.5, style: BorderStyle.solid),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon container for a premium "app" look
               Container(
                 padding: EdgeInsets.all(12.r),
-                decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.cloud_upload_outlined,
-                  color: primaryColor,
-                  size: 28.sp,
-                ),
+                decoration: BoxDecoration(color: primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+                child: Icon(Icons.cloud_upload_outlined, color: primaryColor, size: 28.sp),
               ),
               SizedBox(height: 12.h),
-              Text(
-                "Select PDF Documents",
-                style: TextStyle(
-                  fontSize: 15.sp,
-                  color: primaryColor,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text("Select PDF Documents", style: TextStyle(fontSize: 15.sp, color: primaryColor, fontWeight: FontWeight.bold)),
               SizedBox(height: 4.h),
-              Text(
-                "PDF files only • Max 10MB each",
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: Colors.black45,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
+              Text("PDF files only • Max 10MB each", style: TextStyle(fontSize: 12.sp, color: Colors.black45, fontWeight: FontWeight.w400)),
             ],
           ),
         ),
@@ -280,12 +301,7 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
 
   void _handleBackNavigation(bool isLoading) {
     if (isLoading) return;
-
-    // Check if there is any data that would be lost
-    final hasData = titleController.text.trim().isNotEmpty ||
-        descriptionController.text.trim().isNotEmpty ||
-        pickedFiles.isNotEmpty;
-
+    final hasData = titleController.text.trim().isNotEmpty || descriptionController.text.trim().isNotEmpty || pickedFiles.isNotEmpty;
     if (hasData) {
       _showDiscardDialog();
     } else {
@@ -304,52 +320,33 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Visual warning icon
               CircleAvatar(
                 radius: 28.r,
                 backgroundColor: Colors.orange.withOpacity(0.1),
                 child: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 32.sp),
               ),
               SizedBox(height: 20.h),
-              Text(
-                "Discard Grievance?",
-                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: const Color(0xFF141C46)),
-              ),
+              Text("Discard Grievance?", style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: primaryColor)),
               SizedBox(height: 12.h),
-              Text(
-                "Your progress and any attached documents will be lost. This action cannot be undone.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14.sp, color: Colors.black54, height: 1.4),
-              ),
+              Text("Your progress and any attached documents will be lost.", textAlign: TextAlign.center, style: TextStyle(fontSize: 14.sp, color: Colors.black54, height: 1.4)),
               SizedBox(height: 28.h),
               Row(
                 children: [
-                  // Neutral Action
                   Expanded(
                     child: TextButton(
                       onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                      ),
                       child: const Text("Keep Editing", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600)),
                     ),
                   ),
                   SizedBox(width: 12.w),
-                  // Destructive Action
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
                         HapticFeedback.mediumImpact();
-                        Navigator.pop(context); // Close dialog
-                        Navigator.pop(context); // Go back
+                        Navigator.pop(context);
+                        Navigator.pop(context);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, elevation: 0),
                       child: const Text("Discard", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -363,21 +360,4 @@ class _RegisterGrievancePageState extends ConsumerState<RegisterGrievancePage> {
   }
 
   Widget _label(String text) => Text(text, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold, color: Colors.black54));
-
-  Widget _textField({required TextEditingController controller, required String hint, int maxLines = 1, bool enabled = true, String? Function(String?)? validator}) {
-    return TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      enabled: enabled,
-      validator: validator,
-      style: TextStyle(fontSize: 14.sp),
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: enabled ? Colors.white : Colors.grey.shade100,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey.shade300)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: Colors.grey.shade300)),
-      ),
-    );
-  }
 }
